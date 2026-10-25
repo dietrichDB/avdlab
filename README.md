@@ -1,4 +1,4 @@
-# avdlab — AVD Lab Orchestrator
+# avdlab — AVD Lab Orchestrator v1.1.2
 
 A web app that prepares lab hosts, builds Arista AVD labs from templates (pyavd 6.4), deploys them with containerlab
 and validates them with ANTA 1.10. Design: `docs/10-app-architecture.md`; implementation contract: `docs/CONTRACT.md`.
