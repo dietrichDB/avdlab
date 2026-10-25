@@ -1,0 +1,6 @@
+{"theme":"base","flowchart":{"htmlLabels":false,"curve":"basis","padding":12},"sequence":{"useMaxWidth":true,"mirrorActors":false,"actorMargin":40,"width":200},"securityLevel":"loose",
+ "themeVariables":{"fontFamily":"Inter, sans-serif","fontSize":"16px","primaryColor":"#e8f0fe","primaryBorderColor":"#1b6ef3","primaryTextColor":"#162030","lineColor":"#627086","textColor":"#162030",
+ "secondaryColor":"#f4f6f9","secondaryBorderColor":"#cbd3de","tertiaryColor":"#ffffff","tertiaryBorderColor":"#cbd3de","clusterBkg":"#f8fafc","clusterBorder":"#cbd3de","edgeLabelBackground":"#ffffff",
+ "actorBkg":"#0b1f3a","actorTextColor":"#ffffff","actorBorder":"#1f3759","actorLineColor":"#cbd3de","signalColor":"#162030","signalTextColor":"#162030","noteBkgColor":"#eef5ff","noteBorderColor":"#bfd6fc","noteTextColor":"#173770",
+ "labelBoxBkgColor":"#f8fafc","labelBoxBorderColor":"#cbd3de","labelTextColor":"#162030","loopTextColor":"#162030","activationBkgColor":"#e8f0fe","activationBorderColor":"#1b6ef3","sequenceNumberColor":"#ffffff",
+ "attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}

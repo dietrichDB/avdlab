@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="avdlab mark">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E2A4F"/>
+      <stop offset="1" stop-color="#071A33"/>
+    </linearGradient>
+    <linearGradient id="link" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#bg)"/>
+  <!-- spine → leaf fabric (2 spines, 3 leafs) -->
+  <g stroke="url(#link)" stroke-width="2.4" stroke-linecap="round" opacity="0.95">
+    <line x1="22" y1="19" x2="14" y2="43"/><line x1="22" y1="19" x2="32" y2="43"/><line x1="22" y1="19" x2="50" y2="43"/>
+    <line x1="42" y1="19" x2="14" y2="43"/><line x1="42" y1="19" x2="32" y2="43"/><line x1="42" y1="19" x2="50" y2="43"/>
+  </g>
+  <!-- spines -->
+  <circle cx="22" cy="19" r="5.2" fill="#E2F4FF" stroke="#38BDF8" stroke-width="2"/>
+  <circle cx="42" cy="19" r="5.2" fill="#E2F4FF" stroke="#38BDF8" stroke-width="2"/>
+  <!-- leafs -->
+  <circle cx="14" cy="43" r="4.6" fill="#0B2545" stroke="#67E8F9" stroke-width="2.2"/>
+  <circle cx="32" cy="43" r="4.6" fill="#0B2545" stroke="#67E8F9" stroke-width="2.2"/>
+  <circle cx="50" cy="43" r="4.6" fill="#0B2545" stroke="#67E8F9" stroke-width="2.2"/>
+  <!-- validation tick (ANTA) on the middle leaf -->
+  <path d="M28.8 43.2 L31.3 45.6 L35.6 40.6" fill="none" stroke="#A3E635" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- host baseline -->
+  <rect x="12" y="52" width="40" height="3" rx="1.5" fill="#1E3A5F"/>
+</svg>

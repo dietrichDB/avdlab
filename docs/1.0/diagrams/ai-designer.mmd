@@ -1,0 +1,24 @@
+sequenceDiagram
+  participant U as User
+  participant UI as Design with AI panel
+  participant API as POST /api/ai/design
+  participant M as Model (provider)
+  participant V as Dry run (knobs + topology ops + pyavd)
+  U->>UI: sentence
+  UI->>API: prompt, history, lab_id or template
+  opt no lab and no template (Start from a sentence)
+    API->>M: choose_template (forced tool call)
+    M-->>API: template, reason, lab_name
+  end
+  API->>M: system prompt (knobs without secrets, topology summary) + tools
+  M-->>API: propose_lab_changes or ask_user
+  API->>V: coerce knobs, render, validate, run ops, preview graph
+  alt invalid
+    API->>M: repair round with violations (once)
+    M-->>API: corrected proposal
+    API->>V: dry run again
+  end
+  API-->>UI: proposal: knob changes, ops, changed files, diff
+  U->>UI: Apply (lab) or Use these knobs (New lab)
+  UI->>API: POST /api/ai/design/apply
+  API->>API: re-validate, PATCH knobs, POST topology edit, git commit, audit ai.apply

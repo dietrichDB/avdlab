@@ -1,0 +1,103 @@
+# Guided tours: pages → steps. `selector` targets `data-tour="<name>"` attributes the frontend adds; `route` is where the
+# tour starts (the UI navigates there first); `placement` is a hint for the step card. `lesson` links a step to a lesson.
+first-lab:
+  title: Your first lab
+  route: /labs
+  steps:
+    - selector: '[data-tour="new-lab"]'
+      title: Create a lab
+      text: Start from a template — single-dc-l3ls is the classic EVPN/VXLAN fabric (2 spines, 2 MLAG leaf pairs, 2 L2 leafs).
+    - selector: '[data-tour="template-card"]'
+      title: Pick a template
+      text: Each template is an AVD example turned into a form. The tags tell you what it teaches (l3ls, evpn, mlag …).
+    - selector: '[data-tour="knobs-form"]'
+      title: Knobs
+      text: Knobs write AVD inputs (group_vars) for you. Hover (i) on any knob to see which AVD keys it writes and what CLI it renders.
+      placement: right
+    - selector: '[data-tour="build-button"]'
+      title: Build
+      text: Build runs eos_designs + eos_cli_config_gen (pyavd) offline — no switch needed. It writes structured configs, CLI, documentation and ANTA catalogs.
+      lesson: what-is-avd
+    - selector: '[data-tour="files-tab"]'
+      title: Read the result
+      text: In Files, click any line of intended/configs/<host>.cfg to see which input produced it.
+    - selector: '[data-tour="deploy-button"]'
+      title: Deploy
+      text: Deploy starts the containers on your lab host with the intended configs as startup-config.
+    - selector: '[data-tour="validate-button"]'
+      title: Validate
+      text: Validate runs the AVD-generated ANTA catalogs against the live switches.
+      lesson: anta-validation
+hosts:
+  title: Lab hosts
+  route: /hosts
+  steps:
+    - selector: '[data-tour="add-host"]'
+      title: Add a host
+      text: A lab host is a Linux machine (VM or bare metal) reachable over SSH that runs Docker + containerlab.
+    - selector: '[data-tour="generate-key"]'
+      title: SSH key
+      text: Generate a key and paste the public key into ~/.ssh/authorized_keys on the host — the private key stays encrypted in avdlab.
+    - selector: '[data-tour="probe-button"]'
+      title: Probe
+      text: Probe collects CPU, memory, Docker/containerlab versions and kernel settings and tells you what to fix (e.g. inotify limits for many cEOS).
+    - selector: '[data-tour="bootstrap-button"]'
+      title: Bootstrap
+      text: Bootstrap installs Docker, containerlab and the sysctls idempotently; every step reports skip / apply / ok.
+    - selector: '[data-tour="capabilities"]'
+      title: Capabilities
+      text: The capability panel shows what the host can run and which cEOS images are already present.
+topology-editor:
+  title: Topology editor
+  route: /labs/:id/topology
+  steps:
+    - selector: '[data-tour="topology-graph"]'
+      title: The fabric graph
+      text: Nodes and links come from AVD's topology CSV — every link AVD knows about is a veth pair in containerlab.
+    - selector: '[data-tour="edit-mode"]'
+      title: Edit mode
+      text: Edits are stored as overrides on top of the knobs (uplink_switches, uplink_switch_interfaces, endpoints), so AVD stays the source of truth.
+    - selector: '[data-tour="add-endpoint"]'
+      title: Add an endpoint
+      text: Adding a server writes a connected endpoint (servers[].adapters) — rebuild and the switch ports are configured for you.
+      lesson: connected-endpoints
+    - selector: '[data-tour="add-test-host"]'
+      title: Hot-add a test host
+      text: On a deployed lab you can plug a client into a free port without redeploying the fabric.
+    - selector: '[data-tour="node-inspector"]'
+      title: Inspect
+      text: Click a node or link to see its management IP, role, interfaces and quick actions.
+validation:
+  title: Validation with ANTA
+  route: /labs/:id/validation
+  steps:
+    - selector: '[data-tour="validate-button"]'
+      title: Run ANTA
+      text: Runs the per-device catalogs AVD generated from the structured configs (NTP and reload-cause tests are skipped by default on containers).
+      lesson: anta-validation
+    - selector: '[data-tour="validation-totals"]'
+      title: Totals
+      text: success = matches intent, failure = wrong state, error = test could not run, skipped = not applicable.
+    - selector: '[data-tour="validation-table"]'
+      title: Read by device, then category
+      text: LLDP failures usually mean cabling, BGP overlay failures loopback reachability, MLAG failures the peer-link or node_group.
+    - selector: '[data-tour="report-download"]'
+      title: Reports
+      text: Every run keeps JSON, Markdown and CSV reports in the lab's git history.
+cloudvision:
+  title: CloudVision
+  route: /cloudvision
+  steps:
+    - selector: '[data-tour="cv-targets"]'
+      title: Targets
+      text: Add a CVaaS tenant or an on-prem cluster with a service-account token (stored encrypted).
+    - selector: '[data-tour="cv-knob"]'
+      title: Streaming
+      text: The lab's CloudVision knob renders cv_settings → daemon TerminAttr (needs NTP, and DNS for CVaaS).
+      lesson: cloudvision
+    - selector: '[data-tour="cv-onboard"]'
+      title: Onboard
+      text: Onboarding writes the token to each switch (never into the config) so TerminAttr can register.
+    - selector: '[data-tour="cv-deploy"]'
+      title: cv_deploy
+      text: Pushes the intended configs as configlets through a workspace and a change control, matching devices by serial number.

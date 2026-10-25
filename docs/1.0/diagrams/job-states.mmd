@@ -1,0 +1,10 @@
+stateDiagram-v2
+  [*] --> queued: runner.submit (row in jobs)
+  queued --> running: asyncio task starts
+  queued --> cancelled: POST /cancel before start
+  running --> succeeded: handler returns result
+  running --> failed: exception (error + traceback in log)
+  running --> cancelled: POST /cancel (task cancelled, SSH sessions closed)
+  succeeded --> [*]
+  failed --> [*]
+  cancelled --> [*]

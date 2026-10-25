@@ -1,0 +1,10 @@
+---
+# deploy.yml — avdlab: the AVD example deploys through CVaaS (arista.avd.cv_deploy with a `cloudvision` inventory
+# host); the lab pushes the intended configs over eAPI instead (the CloudVision knob / page covers cv_deploy).
+- name: Deploy Configurations to Devices using eAPI
+  hosts: WAN
+  gather_facts: false
+  tasks:
+    - name: Deploy Configurations to Devices
+      ansible.builtin.import_role:
+        name: arista.avd.eos_config_deploy_eapi

@@ -1,0 +1,249 @@
+# Glossary for the <Term> hover cards and the /learn hub. `see` = related terms, `lesson` = lesson id, `doc_url` optional.
+# Accurate to AVD 6.4 / EOS; examples use the default single-dc-l3ls lab.
+- term: AVD
+  aliases: [Arista Validated Designs]
+  short: Arista Validated Designs — an Ansible collection and Python library (pyavd) that turns a fabric description into EOS configs, docs and tests.
+  long: AVD's pipeline is eos_designs (design inputs → structured config) and eos_cli_config_gen (structured config → CLI + docs). avdlab runs it with pyavd 6.4.
+  see: [eos_designs, eos_cli_config_gen, pyavd]
+  lesson: what-is-avd
+- term: pyavd
+  short: The Python package behind AVD (validate_inputs, get_avd_facts, get_device_structured_config, get_device_config) — used by avdlab instead of Ansible to build labs.
+  see: [AVD]
+  lesson: what-is-avd
+- term: eos_designs
+  short: The AVD role/stage that reads the design data model (group_vars) and produces one structured config per device.
+  long: It validates the inputs against the schema, computes fabric-wide facts (peers, pools, route servers) and renders the EOS Config model. It never talks to devices.
+  see: [structured config, eos_cli_config_gen, AVD Design]
+  lesson: what-is-avd
+  doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/data-models.html
+- term: eos_cli_config_gen
+  short: The AVD role/stage that turns a structured config 1:1 into EOS CLI (intended/configs) and device Markdown docs.
+  see: [structured config, eos_designs]
+  lesson: what-is-avd
+  doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_cli_config_gen/docs/data-models.html
+- term: AVD Design
+  aliases: [design data model, design inputs]
+  short: The eos_designs input model — fabric_name, node types, pools, tenants, connected endpoints … usually in group_vars.
+  see: [eos_designs, group_vars]
+  lesson: inventory-group-vars
+- term: structured config
+  aliases: [structured configuration, EOS Config]
+  short: The per-device YAML in the EOS Config data model (intended/structured_configs/<host>.yml) — the output of eos_designs and the only input of eos_cli_config_gen.
+  see: [eos_designs, eos_cli_config_gen, custom_structured_configuration]
+  lesson: what-is-avd
+- term: custom_structured_configuration
+  aliases: [custom_structured_configuration_]
+  short: Escape hatch — variables named custom_structured_configuration_<eos key> are merged onto the generated structured config last.
+  long: List items with a primary key are merged by key (custom_structured_configuration_list_merge, default append_rp). Prefer a design-model key when one exists; raw_eos_cli is the last resort.
+  see: [structured config, raw_eos_cli]
+  lesson: escape-hatches
+- term: raw_eos_cli
+  short: Verbatim EOS CLI appended at a scope (node, VRF, SVI, interface, platform). Not validated, not documented, invisible to generated ANTA catalogs.
+  see: [custom_structured_configuration]
+  lesson: escape-hatches
+- term: group_vars
+  short: Ansible variables per inventory group (group_vars/<GROUP>.yml). A device sees the merged vars of all its groups; child groups override parents.
+  see: [inventory, fabric_name]
+  lesson: inventory-group-vars
+- term: inventory
+  short: inventory.yml — the tree of groups (FABRIC → DC1 → DC1_SPINES / DC1_L3_LEAVES / DC1_L2_LEAVES) and hosts with their ansible_host (management IP).
+  see: [group_vars, fabric_name]
+  lesson: inventory-group-vars
+- term: fabric_name
+  short: Required. The inventory group that contains every device of the fabric (FABRIC); peer facts are computed across it.
+  see: [inventory]
+  lesson: inventory-group-vars
+- term: node_type_keys
+  aliases: [node type, type]
+  short: The table of node behaviours (spine, l3leaf, l2leaf, l3spine, leaf, p, pe, rr, wan_router …) — underlay router, VTEP, MLAG support, services. A device picks one with `type`.
+  long: Settings for a type live under its key (spine:, l3leaf:, l2leaf:) as defaults → node_groups → nodes (most specific wins). custom_node_type_keys adds or replaces entries. design.type was removed in AVD 6.0.
+  see: [node group, node id]
+  lesson: node-types-ids
+  doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/node-type-keys.html
+- term: node group
+  aliases: [node_groups]
+  short: A group of nodes of one type sharing settings (e.g. DC1_L3_LEAF1 with bgp_as 65101). Exactly two nodes of an MLAG-capable type form an MLAG pair; the group name becomes the MLAG domain-id.
+  see: [MLAG, node_type_keys]
+  lesson: node-types-ids
+- term: node id
+  aliases: [id]
+  short: The node's number — the index into every pool (loopbacks, VTEP, uplink /31s, MLAG) and into the parent's downlink interfaces.
+  see: [pool, loopback_ipv4_offset]
+  lesson: pools-ip-math
+- term: pool
+  aliases: [ip pool]
+  short: A comma-separated list of prefixes/ranges AVD carves addresses from by node id (loopback_ipv4_pool, vtep_loopback_ipv4_pool, uplink_ipv4_pool, mlag_peer_ipv4_pool …).
+  long: "Loopback0 = pool[id + loopback_ipv4_offset]; P2P /31 number = (id − 1) × max_uplink_switches × max_parallel_uplinks + uplink index; MLAG /31 = primary id − 1 (algorithm first_id)."
+  see: [node id, loopback_ipv4_offset]
+  lesson: pools-ip-math
+- term: loopback_ipv4_offset
+  short: Added to the node id when picking a loopback from a pool shared by several node types (the l3leafs use the spine count, 2, so dc1-leaf1a gets 10.255.0.3).
+  see: [pool, node id]
+  lesson: pools-ip-math
+- term: max_uplink_switches
+  short: Number of uplink slots reserved per node in the P2P formula (default = number of uplink_switches). Changing it renumbers every uplink — set it high early if spines may be added.
+  see: [pool, P2P link]
+  lesson: pools-ip-math
+- term: P2P link
+  aliases: [point-to-point, /31]
+  short: A routed fabric link leaf ↔ spine with a /31 from uplink_ipv4_pool; the child (leaf) takes +1, the parent (spine) +0.
+  see: [underlay, pool]
+  lesson: pools-ip-math
+- term: default_interfaces
+  short: Per type/platform default uplink, MLAG and downlink ports (e.g. l3leaf uplinks Ethernet1-2, MLAG Ethernet3-4; spine downlinks Ethernet1-8). AVD ships none — the fabric defines them.
+  see: [node id]
+  lesson: node-types-ids
+- term: underlay
+  short: The routed network between switches that makes every loopback/VTEP reachable — here eBGP over the P2P /31s, advertising only loopbacks.
+  see: [overlay, P2P link, eBGP]
+  lesson: bgp-underlay-overlay
+- term: overlay
+  short: The virtual network on top of the underlay — here EVPN over BGP sessions between Loopback0s, carrying MAC/IP and prefix routes for VXLAN.
+  see: [underlay, EVPN, VXLAN]
+  lesson: bgp-underlay-overlay
+- term: eBGP
+  short: External BGP — sessions between different AS numbers. In the lab spines are AS 65100 and each leaf pair its own AS (65101, 65102).
+  see: [iBGP, underlay]
+  lesson: bgp-underlay-overlay
+- term: iBGP
+  short: Internal BGP — sessions inside one AS, e.g. between the two MLAG peers (MLAG-IPv4-UNDERLAY-PEER, AS 65101) or an iBGP overlay with route reflectors.
+  see: [eBGP, route reflector]
+  lesson: mlag
+- term: route server
+  aliases: [RS, evpn_role server]
+  short: An EVPN peer that relays routes between clients without changing the next hop (spines, evpn_role server, next-hop-unchanged). Clients use their uplink_switches as evpn_route_servers.
+  see: [route reflector, EVPN]
+  lesson: bgp-underlay-overlay
+- term: route reflector
+  aliases: [RR]
+  short: The iBGP equivalent of a route server — reflects routes between iBGP clients (route-reflector-client). Used with iBGP overlays and MPLS designs (rr nodes).
+  see: [route server, iBGP]
+  lesson: bgp-underlay-overlay
+- term: EVPN
+  short: Ethernet VPN (BGP address family l2vpn evpn) — the control plane that distributes MAC/IP bindings, flood lists and IP prefixes between VTEPs.
+  see: [EVPN route types, VXLAN, RD, RT]
+  lesson: bgp-underlay-overlay
+- term: EVPN route types
+  short: "Type-1 Ethernet A-D (multihoming), type-2 MAC/IP advertisement, type-3 inclusive multicast (flood list / VTEP discovery), type-4 Ethernet segment (DF election), type-5 IP prefix."
+  see: [EVPN, ESI]
+  lesson: tenants-vrfs-vnis
+- term: VXLAN
+  short: Virtual eXtensible LAN — encapsulates Ethernet frames in UDP (port 4789) between VTEPs; a 24-bit VNI identifies the segment.
+  see: [VTEP, VNI]
+  lesson: tenants-vrfs-vnis
+- term: VTEP
+  short: VXLAN Tunnel End Point — the switch that encapsulates/decapsulates VXLAN, sourced from Loopback1 (vtep_loopback_ipv4_pool). An MLAG pair shares one VTEP IP.
+  see: [VXLAN, MLAG]
+  lesson: pools-ip-math
+- term: VNI
+  short: VXLAN Network Identifier (24 bits). L2VNI per VLAN, L3VNI per VRF.
+  see: [L2VNI, L3VNI]
+  lesson: tenants-vrfs-vnis
+- term: L2VNI
+  short: The VNI of a VLAN (bridging) — mac_vrf_vni_base + VLAN id, e.g. VLAN 11 → 10011.
+  see: [VNI, L3VNI]
+  lesson: tenants-vrfs-vnis
+- term: L3VNI
+  short: The VNI of a VRF (routing between VTEPs, symmetric IRB, type-5 routes) — vrf_vni, e.g. VRF10 → 10.
+  see: [VNI, L2VNI, VRF]
+  lesson: tenants-vrfs-vnis
+- term: RD
+  aliases: [route distinguisher]
+  short: Makes each VTEP's routes unique in BGP — AVD default <Loopback0>:<number>, e.g. 10.255.0.3:10011 for VLAN 11 on dc1-leaf1a.
+  see: [RT]
+  lesson: tenants-vrfs-vnis
+- term: RT
+  aliases: [route target]
+  short: Extended community deciding which VTEPs import a route — identical fabric-wide, e.g. 10011:10011 for VLAN 11, 10:10 for VRF10.
+  see: [RD]
+  lesson: tenants-vrfs-vnis
+- term: tenant
+  aliases: [tenants, network services]
+  short: The top of the network services model — a tenant has mac_vrf_vni_base, VRFs (with SVIs) and L2 VLANs.
+  see: [VRF, SVI, L2VNI]
+  lesson: tenants-vrfs-vnis
+- term: VRF
+  short: A separate routing table. Tenant VRFs (VRF10, VRF11) carry the SVIs; MGMT is the out-of-band management VRF.
+  see: [L3VNI, tenant]
+  lesson: tenants-vrfs-vnis
+- term: SVI
+  short: Switched Virtual Interface — the routed interface of a VLAN (interface Vlan11). Must set enabled true or AVD renders it shut down.
+  see: [anycast gateway, VARP]
+  lesson: tenants-vrfs-vnis
+- term: anycast gateway
+  aliases: [ip address virtual]
+  short: The same gateway IP and MAC on every leaf (ip_address_virtual → `ip address virtual 10.10.11.1/24` + virtual_router_mac_address), so hosts can move freely.
+  see: [VARP, SVI]
+  lesson: tenants-vrfs-vnis
+- term: VARP
+  aliases: [virtual-router, ip virtual-router address]
+  short: Virtual ARP — a shared virtual IP/MAC on top of unique per-switch SVI addresses (ip_virtual_router_addresses). ip address virtual (anycast) needs no per-switch IPs.
+  see: [anycast gateway]
+  lesson: tenants-vrfs-vnis
+- term: MLAG
+  short: Multi-chassis LAG — two switches present one LACP partner to a device. AVD forms it for two-node node_groups; peer-link Port-Channel3, Vlan4094/4093, domain-id = group name.
+  see: [node group, ESI, peer-link]
+  lesson: mlag
+- term: peer-link
+  short: The link between the two MLAG peers (Port-Channel from mlag_interfaces, trunk group MLAG) carrying the peer VLANs and failover traffic.
+  see: [MLAG]
+  lesson: mlag
+- term: ESI
+  aliases: [Ethernet segment, EVPN multihoming, short_esi]
+  short: Ethernet Segment Identifier — EVPN all-active multihoming across switches that are not an MLAG pair (adapter ethernet_segment.short_esi).
+  see: [MLAG, EVPN route types]
+  lesson: connected-endpoints
+- term: connected endpoints
+  aliases: [servers, adapters]
+  short: Devices plugged into the fabric (servers, firewalls, routers …) described by name and adapters (switches, switch_ports, VLANs, port_channel) — AVD configures the switch ports.
+  see: [port profile, MLAG]
+  lesson: connected-endpoints
+- term: port profile
+  aliases: [port_profiles]
+  short: A reusable set of adapter settings (mode, VLANs, portfast …) referenced by `profile:`; precedence adapter > profile > parent_profile.
+  see: [connected endpoints]
+  lesson: connected-endpoints
+- term: ANTA
+  short: Arista Network Test Automation — runs test catalogs against devices over eAPI and reports success / failure / error / skipped.
+  see: [ANTA catalog, eAPI]
+  lesson: anta-validation
+  doc_url: https://anta.arista.com/
+- term: ANTA catalog
+  short: A list of ANTA tests with inputs. AVD generates one per device from its structured config (anta/avd_catalogs/<host>.json), tagged with the hostname.
+  see: [ANTA]
+  lesson: anta-validation
+- term: eAPI
+  short: EOS JSON-RPC API over HTTPS (management api http-commands) used by Ansible deploys and ANTA. Enabled with management_eapi.enabled (off by default since AVD 6.0).
+  see: [ANTA]
+  lesson: anta-validation
+- term: TerminAttr
+  short: The EOS streaming agent that sends state to CloudVision; rendered as `daemon TerminAttr` from cv_settings.
+  see: [CloudVision, cv_deploy]
+  lesson: cloudvision
+- term: CloudVision
+  aliases: [CVaaS, CVP]
+  short: Arista's management plane (CVaaS in the cloud or on-prem) — telemetry via TerminAttr, config via Static Configuration Studio, change controls.
+  see: [TerminAttr, cv_deploy]
+  lesson: cloudvision
+- term: cv_deploy
+  short: AVD role that pushes intended configs and tags to CloudVision through a workspace and a change control; devices are matched by serial number first.
+  see: [CloudVision]
+  lesson: cloudvision
+- term: ZTP
+  aliases: [Zero Touch Provisioning]
+  short: EOS day-0 boot without config — DHCP gives an address and option 67 bootfile; a `#!` script is executed, anything else becomes the startup-config.
+  see: [cEOS, CloudVision]
+  lesson: ztp
+- term: segment-security
+  aliases: [MSS, segmentation, router segment-security]
+  short: EOS policy inside a VRF — segments (prefixes) and per-application policies attached to the destination segment; the lab's Segmentation knob renders it on the L3 leafs.
+  lesson: segmentation
+- term: containerlab
+  aliases: [clab]
+  short: Tool that runs network labs as containers (cEOS-lab + linux clients) wired with veth pairs; avdlab builds its topology from AVD's topology CSV.
+  see: [cEOS]
+  doc_url: https://containerlab.dev/
+- term: cEOS
+  aliases: [cEOS-lab, cEOSLab]
+  short: Containerised EOS for labs. AVD platform cEOSLab — Management1, no hardware tests, BGP wait-install flags off.
+  see: [containerlab]

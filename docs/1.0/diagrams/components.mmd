@@ -1,0 +1,54 @@
+flowchart TB
+  subgraph Browser
+    SPA["React SPA<br/>Vite build, TanStack Query"]
+  end
+  subgraph Orchestrator["Orchestrator container: avdlab api (uvicorn, port 8080)"]
+    API["FastAPI routers<br/>RoleGuard + SessionMiddleware"]
+    WS["WebSocket endpoints<br/>job logs, web terminals"]
+    JOBS["Job engine<br/>asyncio tasks, file logs"]
+    PYAVD["pyavd 6.4 build<br/>in-process"]
+    MON["Host monitor<br/>20 s sampler"]
+    STORE["Fernet secret store"]
+    DB[("SQLite default<br/>or Postgres")]
+    DATA[("/data volume: labs/ git repos, jobs/,<br/>images/, known_hosts, secret.key")]
+  end
+  subgraph LabHost["Lab host: Linux, Docker, SSH"]
+    CLAB["containerlab<br/>native or container wrapper"]
+    CEOS["cEOS-lab containers<br/>on the clab mgmt network"]
+    AGENT["Agent container<br/>AVD universal image: ansible, pyavd, ANTA"]
+    ANTAIMG["ANTA 1.10 image<br/>anta psirt"]
+    CLIENTS["Linux client containers<br/>network-multitool"]
+  end
+  subgraph External["External services (all optional except a lab host)"]
+    CV["CloudVision<br/>CVaaS or on-prem"]
+    NB["NetBox 4.x"]
+    AI["AI provider<br/>Anthropic / OpenAI-compatible"]
+    SMTP["SMTP server"]
+    GH["GitHub: releases,<br/>issues, lab remotes"]
+    ARISTA["arista.com<br/>eos-downloader"]
+  end
+
+  SPA -->|"HTTPS REST /api"| API
+  SPA <-->|WebSocket| WS
+  API --> DB
+  API --> STORE
+  API --> JOBS
+  JOBS --> WS
+  JOBS --> PYAVD
+  JOBS --> DATA
+  JOBS ==>|"SSH (asyncssh, TOFU host keys)"| CLAB
+  JOBS ==>|"docker run over SSH"| AGENT
+  MON -->|SSH| CLAB
+  CLAB --> CEOS
+  AGENT -->|eAPI| CEOS
+  ANTAIMG -->|eAPI| CEOS
+  CLIENTS --- CEOS
+  CEOS -->|TerminAttr| CV
+  AGENT -->|cv_deploy| CV
+  API -->|"pre-flight, test"| CV
+  JOBS -->|pynetbox| NB
+  API -->|"tool calls"| AI
+  API -->|mail| SMTP
+  API -->|"update check, issues"| GH
+  JOBS -->|"git push/pull"| GH
+  JOBS -->|ardl| ARISTA

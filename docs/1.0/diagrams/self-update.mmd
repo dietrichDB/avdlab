@@ -1,0 +1,20 @@
+sequenceDiagram
+  participant UI as About / Update panel
+  participant API as api container
+  participant D as Docker engine (docker.sock)
+  participant H as Helper docker:27-cli
+  participant R as Repo on host (AVDLAB_DEPLOY_DIR/..)
+  UI->>API: POST /api/meta/update/apply
+  API->>API: can_self_update? no running jobs?
+  API->>D: docker run -d --rm avdlab-update-job (repo mounted at same path)
+  D->>H: start
+  alt mode source
+    H->>R: git -C .. pull --ff-only
+    H->>D: docker compose up -d --build
+  else mode image
+    H->>R: write AVDLAB_IMAGE=ghcr.io/owner/avdlab:version into .env
+    H->>D: docker compose pull api, up -d api
+  end
+  D->>API: api recreated with new version
+  API->>API: finalize_previous_update: /data/update.json, close job
+  UI->>API: poll GET /api/meta until new version answers

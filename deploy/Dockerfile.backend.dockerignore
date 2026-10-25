@@ -1,0 +1,16 @@
+# BuildKit uses <Dockerfile>.dockerignore next to the Dockerfile (context = repo root)
+**/.git
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+frontend/dist
+data
+deploy/.env
+**/*.db
+
+# macOS Finder duplicates created when unpacking a tarball over an existing folder ("file 2.ts")
+**/* [0-9].*
+**/* [0-9][0-9].*
+**/.DS_Store

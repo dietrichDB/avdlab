@@ -1,0 +1,28 @@
+flowchart TB
+  subgraph Client["Browser"]
+    C1["Signed session cookie<br/>HttpOnly, SameSite=Lax,<br/>Secure behind https"]
+  end
+  subgraph App["avdlab api"]
+    L["POST /api/auth/login<br/>argon2id verify, lockout"]
+    M["POST /api/auth/mfa/verify<br/>TOTP or recovery code"]
+    RG["RoleGuard middleware<br/>admin / operator / viewer"]
+    SV["session_version check<br/>password change = other sessions out"]
+    SS["Secret store<br/>Fernet, key = AVDLAB_SECRET_KEY or /data/secret.key"]
+    R["Routers and jobs"]
+  end
+  subgraph LH["Lab host"]
+    STDIN["stdin of SSH commands<br/>eAPI curl config, sudo -S, ardl token,<br/>onboarding token, ansible extra vars"]
+    ENVF["0600 env-file in ~/.avdlab or $HOME<br/>cv_deploy, psirt; removed in finally"]
+    CONT["Throw-away agent container<br/>/tmp/avdlab-extra-vars.yml 0600"]
+  end
+  EXT["Provider / CloudVision / NetBox / git remote<br/>key only in HTTP header or GIT_ASKPASS file"]
+
+  C1 --> L --> M --> C1
+  C1 --> RG --> SV --> R
+  R -->|reveal only in job code| SS
+  R --> STDIN
+  R --> ENVF
+  STDIN --> CONT
+  R --> EXT
+  NEVER["Never: command-line arguments, job logs (masked), API responses, AI prompts;<br/>platform secrets (SSH keys, tokens, API keys) never in the lab git repo"]
+  SS -.-> NEVER

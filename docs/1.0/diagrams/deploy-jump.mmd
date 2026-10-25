@@ -1,0 +1,13 @@
+flowchart LR
+  ORCH["avdlab api"]
+  subgraph MAC["Mac: jump host you@mac"]
+    ORB["OrbStack Linux VM<br/>avdlab-vm.orb.local<br/>sshd, Docker, containerlab, cEOSarm"]
+  end
+  subgraph PC["Windows PC: jump host you@pc"]
+    WSL["Containerlab WSL2 distro<br/>sshd, Docker inside the distro"]
+  end
+  ORCH -->|"SSH hop 1 (same key or password)"| MAC
+  MAC -->|"SSH hop 2 tunnelled"| ORB
+  ORCH -->|"SSH hop 1"| PC
+  PC -->|"SSH hop 2 to localhost:port"| WSL
+  ORCH -.->|"or directly with WSL mirrored networking"| WSL

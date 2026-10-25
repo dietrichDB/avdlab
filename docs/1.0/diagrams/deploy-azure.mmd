@@ -1,0 +1,19 @@
+flowchart LR
+  U["Browser on the internet"]
+  DNS["DNS A record<br/>avdlab.example.com"]
+  LE["Let's Encrypt ACME"]
+  subgraph AZ["Azure VM Ubuntu 24.04, B2s"]
+    NSG["NSG: 22 from admin IP,<br/>80 and 443 from anywhere"]
+    CADDY["caddy:2<br/>80, 443, 443/udp<br/>volume caddy_data"]
+    APIP["api container<br/>127.0.0.1:8080"]
+    V[("avdlab-data")]
+  end
+  subgraph REMOTE["Lab host: other VM or box at home"]
+    LHC["containerlab + cEOS"]
+  end
+  U --> DNS
+  U -->|HTTPS 443| NSG --> CADDY
+  CADDY -->|reverse_proxy api:8080<br/>X-Forwarded-Proto/For| APIP
+  CADDY <-->|HTTP-01 / TLS-ALPN| LE
+  APIP --> V
+  APIP -->|SSH over VPN/Tailscale<br/>or public IP, key only| LHC

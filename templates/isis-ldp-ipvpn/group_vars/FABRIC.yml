@@ -1,0 +1,49 @@
+---
+# Please note, comments below are intended for site documentation only
+# Ansible connectivity definitions
+ansible_connection: ansible.netcommon.httpapi # (1)!
+ansible_network_os: arista.eos.eos # (2)!
+ansible_user: arista # (3)!
+ansible_password: arista
+ansible_become: true
+ansible_become_method: enable # (4)!
+ansible_httpapi_use_ssl: true # (5)!
+ansible_httpapi_validate_certs: false # (6)!
+
+management_eapi:
+  enabled: true
+
+# Common AVD group variables
+fabric_name: FABRIC # (7)!
+
+eos_designs_documentation: # (8)!
+  topology_csv: true
+  p2p_links_csv: true
+
+underlay_routing_protocol: isis-ldp # (9)!
+overlay_routing_protocol: ibgp
+
+aaa_settings: # (10)!
+  local_users:
+    # Username with no password configured
+    - name: admin
+      privilege: 15
+      role: network-admin
+      no_password: true
+
+    # Username with a password
+    - name: arista
+      privilege: 15
+      role: network-admin
+      sha512_password: "$6$Enl0WfE32FthwyiJ$yTyGaEJ2uPKLU.F7314YtB7J1jrzrMi7ogXIRTEHQfLdLgKWWmr1UvNlZLN6AyuxET7G5aH3AI9OYRzxVTkB1."
+
+bgp_peer_groups: # (11)!
+  # all passwords set to "arista"
+  mpls_overlay_peers:
+    password: $1c$G8BQN0ezkiJOX2cuAYpsEA==
+  rr_overlay_peers:
+    password: $1c$G8BQN0ezkiJOX2cuAYpsEA==
+
+custom_structured_configuration_management_security: # (12)!
+  password:
+    encryption_key_common: true

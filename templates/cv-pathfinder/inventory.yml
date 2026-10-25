@@ -1,0 +1,53 @@
+---
+all:
+  children:
+    WAN:
+      children:
+        PATHFINDERS:
+          hosts:
+            pf1:
+              ansible_host: 192.168.17.10
+            pf2:
+              ansible_host: 192.168.17.11
+        SITE1:
+          hosts:
+            site1-wan1:
+              ansible_host: 192.168.17.12
+            site1-wan2:
+              ansible_host: 192.168.17.13
+            site1-border1:
+              ansible_host: 192.168.17.14
+            site1-border2:
+              ansible_host: 192.168.17.15
+        SITE2:
+          hosts:
+            site2-wan1:
+              ansible_host: 192.168.17.16
+            site2-wan2:
+              ansible_host: 192.168.17.17
+            site2-leaf1:
+              ansible_host: 192.168.17.18
+            site2-leaf2:
+              ansible_host: 192.168.17.19
+        SITE3:
+          hosts:
+            site3-wan1:
+              ansible_host: 192.168.17.20
+            site3-leaf1:
+              ansible_host: 192.168.17.21
+        SITE4:
+          hosts:
+            site4-wan1:
+              ansible_host: 192.168.17.22
+            site4-border1:
+              ansible_host: 192.168.17.23
+            site4-border2:
+              ansible_host: 192.168.17.24
+        TRANSPORTS:
+          hosts:
+            mpls-cloud:
+              ansible_host: 192.168.17.30
+            inet-cloud:
+              ansible_host: 192.168.17.31
+              # avdlab: from the example's host_vars/inet-cloud.yml (the Internet "cloud" runs no overlay)
+              overlay_routing_protocol: none

@@ -1,0 +1,68 @@
+# syntax=docker/dockerfile:1.7
+# avdlab API + SPA in one image.  Build context = repository root:
+#   docker compose -f deploy/docker-compose.yml build      (or)
+#   docker build -f deploy/Dockerfile.backend -t avdlab .
+# The frontend stage is optional: if frontend/package.json is absent the image ships the API only.
+# Build info shown on the About page / GET /api/meta (phase 5):
+#   docker build -f deploy/Dockerfile.backend --build-arg AVDLAB_GIT_SHA=$(git rev-parse --short=12 HEAD) \
+#                --build-arg AVDLAB_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) -t avdlab .
+
+# ---------------------------------------------------------------- 1. frontend (node 22)
+FROM node:22-bookworm-slim AS frontend
+WORKDIR /src
+# copy the whole context (trimmed by Dockerfile.backend.dockerignore) so a missing frontend/ is not a build error
+COPY . /src
+RUN set -eux; \
+    if [ -f frontend/package.json ]; then \
+      cd frontend; \
+      if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi; \
+      npm run build; \
+    else \
+      echo "frontend/ not present - building API-only image"; \
+    fi; \
+    mkdir -p /src/frontend/dist
+
+# ---------------------------------------------------------------- 2. python deps (venv)
+FROM python:3.11-slim AS pydeps
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends build-essential git \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+COPY backend/pyproject.toml /src/backend/pyproject.toml
+COPY backend/avdlab /src/backend/avdlab
+# install dependencies from pyproject, then drop the package itself: the app runs from /app/backend (see PYTHONPATH),
+# because main.py/config.py locate frontend/dist and templates/ relative to the source tree.
+RUN pip install /src/backend && pip uninstall -y avdlab
+
+# ---------------------------------------------------------------- 3. runtime
+FROM python:3.11-slim AS runtime
+ARG AVDLAB_GIT_SHA=""
+ARG AVDLAB_BUILD_DATE=""
+ENV AVDLAB_GIT_SHA=${AVDLAB_GIT_SHA} AVDLAB_BUILD_DATE=${AVDLAB_BUILD_DATE}
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
+    PATH=/opt/venv/bin:$PATH PYTHONPATH=/app/backend \
+    AVDLAB_DATA_DIR=/data
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+      git openssh-client rsync tar xz-utils curl ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/*
+# docker CLI only (image.download --import-docker / docker save when the host socket is mounted)
+COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=pydeps /opt/venv /opt/venv
+WORKDIR /app
+COPY backend/avdlab /app/backend/avdlab
+COPY backend/pyproject.toml /app/backend/pyproject.toml
+COPY templates /app/templates
+# phase 5: served by /api/meta (resolved relative to the package: /app/backend/avdlab/meta → /app)
+COPY VERSION CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md /app/
+COPY --from=frontend /src/frontend/dist /app/frontend/dist
+# no build arg given → record the build time at least
+RUN if [ -z "$AVDLAB_BUILD_DATE" ]; then date -u +%Y-%m-%dT%H:%M:%SZ > /app/BUILD_DATE; fi
+RUN mkdir -p /data && git config --system user.name avdlab && git config --system user.email avdlab@localhost \
+    && git config --system --add safe.directory '*'
+VOLUME ["/data"]
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/auth/me | grep -qE '^(200|401)$' || exit 1
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["uvicorn", "avdlab.main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]

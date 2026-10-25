@@ -1,0 +1,13 @@
+stateDiagram-v2
+  [*] --> draft: create lab
+  draft --> built: lab.build succeeds
+  built --> draft: knob, file or topology change
+  built --> deployed: lab.deploy
+  destroyed --> deployed: lab.deploy
+  deployed --> validated: lab.validate, no failure or error
+  validated --> deployed: lab.validate with failures
+  deployed --> deployed: redeploy / push configs / build
+  validated --> deployed: redeploy
+  deployed --> destroyed: lab.destroy
+  validated --> destroyed: lab.destroy
+  destroyed --> built: lab.build

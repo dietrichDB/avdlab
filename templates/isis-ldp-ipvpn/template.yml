@@ -1,0 +1,229 @@
+---
+name: isis-ldp-ipvpn
+title: MPLS core (IS-IS + LDP underlay, iBGP VPN-IPv4, PE/P/RR)
+description: >
+  Service-provider style MPLS core: P routers, PE routers and a route-reflector pair running IS-IS + LDP, iBGP
+  VPN-IPv4 overlay to the RRs, two customer L3VPNs (OSPF and eBGP PE-CE). Core links come from
+  core_interfaces.p2p_links. Static template (AVD example `isis-ldp-ipvpn`).
+tags: [mpls, isis, ldp, ipvpn, l3vpn, core]
+learn: >
+  Teaches the MPLS side of eos_designs: the p / pe / rr node types, `underlay_routing_protocol:
+  isis-ldp` with `isis_system_id_prefix` per node type, `core_interfaces` (p2p_links with an IP pool and a profile
+  carrying the IS-IS metric/circuit type/MD5 authentication), `mpls_route_reflectors` building the iBGP VPN-IPv4
+  overlay, and `tenants` with `address_families: [vpn-ipv4]`, per-VRF `l3_interfaces` (sub-interfaces towards CEs),
+  OSPF PE-CE and eBGP `bgp_peers`. Read the configs for `router isis`, `mpls ldp`, `router bgp` VPN-IPv4 and the VRF
+  RD/RT that AVD derives from `vrf_id`.
+  AVD doc: https://avd.arista.com/6.4/ansible_collections/arista/avd/examples/isis-ldp-ipvpn/index.html
+fabric_name: FABRIC
+generator: static
+base_mgmt_subnet: 172.16.1.0/24
+knobs:
+  - key: mgmt_subnet
+    type: cidr
+    default: 172.16.1.0/24
+    label: Management subnet
+    help: All mgmt_ip / ansible_host values are re-based onto this subnet (host bits preserved).
+    learn:
+      summary: Out-of-band management subnet. The example's `mgmt_ip`/`ansible_host`/`mgmt_gateway` values are remapped from the example's
+        subnet into this one, keeping each host's offset (.11 stays .11).
+      avd_keys:
+      - <node_type>.nodes[].mgmt_ip
+      - <node_type>.node_groups[].nodes[].mgmt_ip
+      renders: interface Management1 / vrf MGMT / ip address 172.16.1.101/24
+      pitfalls:
+      - Must not overlap the host's own networks or another lab's management network on the same host.
+      - The gateway (mgmt_gateway) must be inside this subnet.
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/node-type-common-configuration.html
+  - key: mgmt_gateway
+    type: ipv4
+    default: 172.16.1.1
+    label: Management gateway
+    learn:
+      summary: Default gateway of the management VRF. AVD renders a static default route in VRF MGMT towards it.
+      avd_keys:
+      - mgmt_gateway
+      renders: ip route vrf MGMT 0.0.0.0/0 172.16.1.1
+      pitfalls:
+      - Must be an address inside mgmt_subnet; on containerlab it is the management bridge's gateway.
+      - A node-level `mgmt_gateway` overrides the global one.
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/management-interface-settings.html
+  - key: ceos_version
+    type: string
+    default: 4.34.2F
+    label: cEOS-lab version
+    learn:
+      summary: cEOS-lab image version for the containerlab topology (image arista/ceos:<version>). It does not change the AVD data model
+        — the same intended configs run on any recent EOS.
+      avd_keys: []
+      renders: 'Nothing in the EOS config; `image: arista/ceos:4.34.2F` in clab/topology.clab.yml'
+      pitfalls:
+      - The image must exist on the lab host (Images page → download / push).
+      - Very old EOS versions may reject CLI that AVD 6.4 renders (AVD targets current EOS syntax, EOS 4.35 ordering).
+      doc_url: https://containerlab.dev/manual/kinds/ceos/
+  - key: ceos_arch
+    type: string
+    default: x86_64
+    choices: [x86_64, arm64]
+    label: cEOS architecture
+    help: "x86_64 → arista/ceos:<version> (cEOS/cEOS64), arm64 → arista/ceos:<version>-arm64 (cEOSarm). Must match the host CPU."
+    learn:
+      summary: CPU architecture of the cEOS image — x86_64 (arista/ceos:<version>) or arm64 (arista/ceos:<version>-arm64, cEOSarm). Must
+        match the lab host.
+      avd_keys: []
+      renders: Nothing in the EOS config; selects the image tag in the containerlab topology
+      pitfalls:
+      - An x86_64 image on an ARM host (or vice versa) will not boot.
+      doc_url: https://containerlab.dev/manual/kinds/ceos/
+  - key: device_password
+    type: secret
+    default: arista
+    label: Device password
+    learn:
+      summary: Password of the `arista` admin user on every switch (hashed to sha512) and of the BGP peer groups (type-7, encrypted per
+        peer-group name). Ansible and ANTA log in with it.
+      avd_keys:
+      - aaa_settings.local_users[name=arista].sha512_password
+      - bgp_peer_groups.<peer group>.password
+      - ansible_password
+      renders: username arista privilege 15 role network-admin secret sha512 $6$…; neighbor EVPN-OVERLAY-PEERS password 7 …
+      pitfalls:
+      - The type-7 BGP password is keyed on the peer-group NAME — renaming a peer group invalidates a pre-encrypted password (use cleartext_password
+        instead).
+      - Changing it on a deployed lab requires a deploy; until then Ansible/ANTA use the new password against the old config and fail to
+        log in.
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/aaa-settings.html
+  - key: serial_scheme
+    type: string
+    default: "{PREFIX}{ID:04d}"
+    label: Serial-number scheme
+    learn:
+      summary: Python format string for every node's serial number (PREFIX = first 4 characters of the lab slug, ID = position in the inventory;
+        HOST, TYPE, SLUG also available). Written to `serial_number` and to the cEOS ceos-config file, so the container boots with that
+        serial.
+      avd_keys:
+      - <node_type>.nodes[].serial_number
+      renders: Nothing in the CLI; metadata.serial_number in the structured config, documentation and `SERIALNUMBER=` in clab/<node>/ceos-config
+      pitfalls:
+      - CloudVision and cv_deploy identify devices by serial number first — keep serials unique across labs that stream to the same CloudVision
+        tenant.
+      - Changing the scheme on an onboarded lab makes CloudVision see new devices.
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/node-type-common-configuration.html
+  - key: dns_servers
+    type: yaml
+    label: DNS servers
+    default: null
+    help: "List of resolver IPs for the switches (dns_settings.servers on the fabric group). Empty = keep the example's DNS servers. Use public resolvers (1.1.1.1, 8.8.8.8) when the lab must reach CVaaS."
+    learn:
+      summary: Resolvers for the switches (in the management VRF).
+      avd_keys:
+      - dns_settings.servers[].ip_address
+      renders: ip name-server vrf MGMT 192.168.1.1; ip domain lookup vrf MGMT source-interface Management1
+      pitfalls:
+      - CVaaS onboarding needs working DNS — use public resolvers (1.1.1.1, 8.8.8.8) or your own reachable from the management network.
+      - The old top-level `name_servers` key was removed in AVD 6.0.
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/dns-settings.html
+  - key: cloudvision
+    type: object
+    label: CloudVision
+    default: {mode: none, region: auto, servers: [], disable_aaa: true, topology_hints: true, device_tags: {}}
+    help: "mode: none | cvaas | onprem. cvaas → region (auto|us-central1-a|...); onprem → servers (IPs/hostnames, port 9910). device_tags: {label: value} applied to every device."
+    learn:
+      summary: Stream the lab to CloudVision — mode none | cvaas (region) | onprem (servers). Renders TerminAttr from `cv_settings` and
+        CloudVision tags from `generate_cv_tags`.
+      avd_keys:
+      - cv_settings.cvaas.clusters[]
+      - cv_settings.onprem_clusters[]
+      - cv_settings.terminattr.disable_aaa
+      - generate_cv_tags.topology_hints
+      - generate_cv_tags.device_tags
+      renders: daemon TerminAttr / exec /usr/bin/TerminAttr -cvaddr=apiserver.arista.io:443 -cvauth=token-secure,/tmp/cv-onboarding-token
+        -cvvrf=MGMT -disableaaa …
+      pitfalls:
+      - AVD refuses cv_settings without ntp_settings.servers (and CVaaS without dns_settings.servers) — the lab adds pool.ntp.org / public
+        DNS when the template has none.
+      - The onboarding token is not in the config; it is written to /tmp/cv-onboarding-token (CVaaS) or /tmp/token (on-prem) by the onboarding
+        job.
+      - mode none removes the example's placeholder TerminAttr block.
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/cloudvision-settings.html
+  - key: client_image
+    type: string
+    label: Client image
+    help: "Docker image of the linux client containers (connected endpoints). Needs iperf3, iproute2 (bond/vlan) and ping. Empty = the server default (settings.host_image, ghcr.io/srl-labs/network-multitool:latest)."
+    learn:
+      summary: Docker image of the linux client containers that stand in for the connected endpoints (needs iperf3, iproute2 for bonds/VLANs,
+        ping).
+      avd_keys: []
+      renders: 'Nothing in the switch configs; `kind: linux` nodes in clab/topology.clab.yml plus a generated setup script (bond, VLAN,
+        IP)'
+      pitfalls:
+      - Empty = the server default (network-multitool). An image without iproute2 cannot build the LACP bond towards an MLAG pair.
+      doc_url: https://containerlab.dev/manual/kinds/linux/
+  - key: device_tags
+    type: yaml
+    default: {}
+    label: Device tags (per device)
+    help: "CloudVision device tags per device: {hostname: {label: value}}. Rendered into the node's structured_config.metadata.cv_tags.device_tags (merged after the global cloudvision.device_tags; a per-device label wins). Unknown hostnames are rejected."
+    learn:
+      summary: 'Per-device CloudVision tags {hostname: {label: value}} — rendered into the node''s structured_config.metadata.cv_tags.device_tags
+        (a per-device label wins over the global cloudvision.device_tags).'
+      avd_keys:
+      - <node_type>.nodes[].structured_config.metadata.cv_tags.device_tags
+      - generate_cv_tags.device_tags
+      renders: Nothing in the CLI; tags pushed to CloudVision by cv_deploy (Inventory & Topology studio)
+      pitfalls:
+      - Unknown hostnames are rejected.
+      - cv_deploy replaces tags with the same label but a different value; `cv_strict_tags` would remove all non-AVD tags.
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/cloudvision-tags.html
+  - key: provisioning
+    type: object
+    label: Provisioning (startup-config / ZTP)
+    default: {mode: startup-config, ztp_source: intended, ztp_server_ip: null}
+    help: "mode: startup-config (containerlab mounts intended/configs) | ztp (cEOS boots into Zero Touch Provisioning: a `ztp` node runs dnsmasq + an HTTP server; option 67 serves <node>.cfg, or with ztp_source cloudvision a bootstrap script that runs the CloudVision target's ZTP script / writes the onboarding token). ztp_server_ip: empty = highest free IP of the management subnet."
+    learn:
+      summary: How switches get their first config — startup-config (containerlab mounts intended/configs) or ztp (cEOS boots into Zero
+        Touch Provisioning from a dnsmasq + HTTP `ztp` container; option 67 points at <node>.cfg or a CloudVision bootstrap script).
+      avd_keys: []
+      renders: Nothing in the intended configs; a `ztp` node and clab/ztp/{dnsmasq.conf,run.sh,www/*} in the topology
+      pitfalls:
+      - In ztp mode the switches boot without config — Management0 DHCP must reach the ztp node; ZTP is cancelled by any startup-config.
+      - ztp_source cloudvision needs a CloudVision target and onboarding token; secrets are written on the host, never into the lab repo.
+      doc_url: https://containerlab.dev/manual/kinds/ceos/
+  - key: segmentation
+    type: yaml
+    default: {}
+    label: Segmentation (MSS foundation)
+    help: "router segment-security: {enabled, applications: [{name, protocol: tcp|udp|icmp|any, ports}], policies: [{name, rules: [{application, action: forward|drop, log}]}], vrfs: [{name, segments: [{name, prefixes: [cidr], interfaces: [], policies: [{from, policy}], fallback: forward|drop}]}]}. Rendered only on the L3 leafs that carry each VRF (node structured_config). Foundation — MSS design to be refined."
+    learn:
+      summary: Multi-domain segmentation (MSS foundation) — applications, policies and per-VRF segments rendered as `router segment-security`
+        on the L3 leafs that carry each VRF.
+      avd_keys:
+      - <node_type>.nodes[].structured_config.router_segment_security
+      - <node_type>.nodes[].structured_config.application_traffic_recognition
+      - <node_type>.nodes[].structured_config.match_list_input
+      renders: router segment-security / vrf VRF10 / segment APP / definition / match prefix-ipv4 MSS-VRF10-APP / policies / from DB policy
+        P-WEB / fallback policy policy-drop-all
+      pitfalls:
+      - Policies are stateless on cEOS — return traffic is governed by the reverse segment pair.
+      - A policy with no matching rule drops; `fallback` decides for sources without an explicit `from`.
+      - Rendered through node structured_config — a hand-written node structured_config at the same level would be replaced, not merged
+        (only the most specific level is used).
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_cli_config_gen/docs/tables/router-segment-security.html
+  - key: act
+    type: object
+    label: Arista Cloud Test (ACT)
+    default: {os_version: 4.33.1F, username: cvpadmin, password: "cvp123!", internet_access: true, tools_server_ip: ""}
+    help: "Used when the lab target is act: the build runs pyavd in digital-twin mode (vEOS-lab, Management1) and writes the ACT topology (documentation/fabric/<fabric>-topology.yml) with a tools server (tools_server_ip in the mgmt subnet; empty = highest free address) and one ubuntu node per client. username/password are the ACT node credentials (also added as a local user so deploy keeps access)."
+    learn:
+      summary: Arista Cloud Test (ACT) settings, used when the lab target is act — pyavd builds in digital-twin mode (vEOS-lab, Management1)
+        and writes the ACT topology file with a tools server and one ubuntu node per client.
+      avd_keys:
+      - digital_twin.fabric.act_os_version
+      - digital_twin.fabric.act_username
+      - digital_twin.fabric.act_password
+      - digital_twin.fabric.act_internet_access
+      - avd_digital_twin_mode
+      renders: documentation/fabric/<fabric>-topology.yml (ACT topology); the configs use platform vEOS-lab settings
+      pitfalls:
+      - Digital twin is PREVIEW in AVD 6.4; mgmt_ip: dhcp is refused in twin mode.
+      - username/password are the ACT node credentials — they are also added as a local user so deploy keeps access.
+      doc_url: https://avd.arista.com/6.4/ansible_collections/arista/avd/roles/eos_designs/docs/tables/digital-twin-configuration.html

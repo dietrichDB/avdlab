@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * v0.9.0 design system (CONTRACT-8 B) — CloudVision-inspired: dark navy navigation, light content, Arista-blue
+ * primary. Tokens are space-separated RGB triplets so Tailwind's `bg-cv-primary/10` alpha syntax works
+ * (mapped in tailwind.config.js as theme.extend.colors.cv.*). Dark mode (prefers-color-scheme) swaps the
+ * content tokens; the navigation stays navy in both.
+ */
+:root {
+  /* navigation */
+  --cv-nav: 11 31 58;              /* #0b1f3a */
+  --cv-nav-hover: 20 45 80;        /* #142d50 */
+  --cv-nav-active: 26 58 102;      /* #1a3a66 */
+  --cv-nav-border: 31 55 89;       /* #1f3759 */
+  --cv-nav-text: 197 210 228;      /* #c5d2e4 */
+  --cv-nav-text-active: 255 255 255;
+  --cv-nav-muted: 118 140 172;     /* #768cac — group headings */
+  --cv-accent: 34 211 238;         /* #22d3ee — brand cyan ("lab", active bar glow) */
+  /* primary */
+  --cv-primary: 27 110 243;        /* #1b6ef3 */
+  --cv-primary-hover: 21 92 208;   /* #155cd0 */
+  --cv-primary-soft: 232 240 254;  /* #e8f0fe */
+  --cv-primary-text: 21 92 208;    /* link / selected text */
+  /* content */
+  --cv-bg: 244 246 249;            /* #f4f6f9 */
+  --cv-surface: 255 255 255;
+  --cv-surface-2: 248 250 252;     /* #f8fafc — table header, hover */
+  --cv-topbar: 255 255 255;
+  --cv-border: 225 230 237;        /* #e1e6ed */
+  --cv-border-strong: 203 211 222; /* #cbd3de — inputs */
+  --cv-text: 22 32 48;             /* #162030 */
+  --cv-muted: 98 112 134;          /* #627086 */
+  /* beginner hint callout */
+  --cv-hint-bg: 238 245 255;       /* #eef5ff */
+  --cv-hint-border: 191 214 252;   /* #bfd6fc */
+  --cv-hint-text: 23 55 112;       /* #173770 */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cv-nav: 8 22 42;             /* #08162a — a touch deeper than the content */
+    --cv-nav-hover: 18 38 68;
+    --cv-nav-active: 24 52 92;
+    --cv-nav-border: 24 44 74;
+    --cv-primary: 47 125 246;      /* #2f7df6 — lifted for contrast on dark */
+    --cv-primary-hover: 27 110 243;
+    --cv-primary-soft: 22 40 72;
+    --cv-primary-text: 125 172 250;
+    --cv-bg: 11 15 22;             /* #0b0f16 */
+    --cv-surface: 18 24 34;        /* #121822 */
+    --cv-surface-2: 24 31 44;      /* #181f2c */
+    --cv-topbar: 15 20 29;
+    --cv-border: 36 46 62;         /* #242e3e */
+    --cv-border-strong: 52 64 84;
+    --cv-text: 226 232 240;
+    --cv-muted: 145 158 178;
+    --cv-hint-bg: 16 33 62;
+    --cv-hint-border: 33 66 120;
+    --cv-hint-text: 190 214 252;
+  }
+}
+
+@layer base {
+  html { font-size: 14px; }
+  body {
+    @apply bg-cv-bg text-cv-text antialiased;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  input, select, textarea { @apply text-sm; }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-[13px] font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cv-primary/40 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap; }
+  .btn-primary { @apply btn border-cv-primary bg-cv-primary text-white shadow-sm hover:border-cv-primary-hover hover:bg-cv-primary-hover; }
+  .btn-secondary { @apply btn border-cv-border-strong bg-cv-surface text-cv-text shadow-sm hover:bg-cv-surface-2; }
+  .btn-ghost { @apply btn border-transparent bg-transparent text-cv-muted hover:bg-cv-surface-2 hover:text-cv-text; }
+  .btn-danger { @apply btn border-red-600 bg-red-600 text-white shadow-sm hover:border-red-700 hover:bg-red-700; }
+  .btn-sm { @apply rounded px-2 py-0.5 text-xs; }
+  .input { @apply w-full rounded-md border border-cv-border-strong bg-cv-surface px-2.5 py-1.5 text-[13px] text-cv-text placeholder:text-cv-muted/70 focus:border-cv-primary focus:outline-none focus:ring-2 focus:ring-cv-primary/20; }
+  .label { @apply mb-1 block text-xs font-medium text-cv-muted; }
+  .card { @apply rounded-lg border border-cv-border bg-cv-surface shadow-[0_1px_2px_rgba(16,24,40,0.05)]; }
+  .card-header { @apply flex items-center justify-between border-b border-cv-border px-4 py-2.5; }
+  .table { @apply w-full text-left text-[13px]; }
+  .table th { @apply border-b border-cv-border bg-cv-surface-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-cv-muted; }
+  .table td { @apply border-b border-cv-border/70 px-3 py-2 align-top; }
+  .table tr:last-child td { @apply border-b-0; }
+  .table tr:hover td { @apply bg-cv-surface-2; }
+  .mono { @apply font-mono text-xs; }
+  .link { @apply text-cv-primary-text hover:underline; }
+  .h1 { @apply text-xl font-semibold tracking-tight text-cv-text; }
+  .h2 { @apply text-xs font-semibold uppercase tracking-wider text-cv-muted; }
+  .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide; }
+  .hint { @apply flex items-start gap-2 rounded-md border border-cv-hint-border bg-cv-hint-bg px-3 py-2 text-[13px] text-cv-hint-text; }
+  .segmented { @apply inline-flex rounded-md border border-cv-border-strong bg-cv-surface-2 p-0.5 text-xs font-medium; }
+  .segmented > button { @apply rounded px-2.5 py-1 text-cv-muted transition-colors hover:text-cv-text; }
+  .segmented > button[aria-pressed='true'] { @apply bg-cv-surface text-cv-primary-text shadow-sm; }
+}
+
+.react-flow__attribution { display: none; }

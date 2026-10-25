@@ -1,0 +1,9 @@
+flowchart LR
+  K["Generate SSH key<br/>ed25519, private key in secret store"] --> A["Add host<br/>platform, address, user,<br/>jump host, auth, sudo"]
+  A --> P["Probe<br/>host.probe"]
+  P -->|recommendations| B["Bootstrap<br/>host.bootstrap clab-host or act-tools"]
+  B -->|re-probe| V["Verify<br/>host.verify"]
+  V --> I["Push cEOS image<br/>image.push or on first deploy"]
+  I --> READY["Ready for labs"]
+  P -.->|"macOS / Windows itself detected"| FIX["Point Address at the VM,<br/>set Jump host"]
+  FIX --> P

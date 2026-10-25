@@ -1,0 +1,21 @@
+flowchart LR
+  subgraph LAN["Home or office LAN"]
+    U["Browser"]
+    subgraph MM["Mac mini or any Docker host"]
+      direction TB
+      APIC["api container<br/>0.0.0.0:8080"]
+      PG[("db: postgres:16<br/>profile postgres, optional")]
+      NBX["netbox + worker + postgres + valkey<br/>profile netbox, optional"]
+      VOL[("volume avdlab-data")]
+      SOCK["/var/run/docker.sock<br/>optional mount"]
+    end
+    subgraph LH["Linux lab host x86_64"]
+      CL["containerlab + cEOS<br/>/opt/avdlab/labs/slug"]
+    end
+  end
+  U -->|http://mac-mini.local:8080| APIC
+  APIC --> VOL
+  APIC -.-> PG
+  APIC -.->|http://netbox:8080| NBX
+  APIC -.-> SOCK
+  APIC -->|SSH 22| CL

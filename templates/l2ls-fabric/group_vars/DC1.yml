@@ -1,0 +1,8 @@
+---
+### group_vars/DC1.yml
+
+# OOB Management network default gateway
+mgmt_gateway: 172.16.100.1
+
+management_eapi:
+  enabled: true

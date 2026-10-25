@@ -1,0 +1,10 @@
+flowchart LR
+  T["Template<br/>AVD example + template.yml"] --> K["Knobs<br/>counts, pools, tenants, CV mode"]
+  K -->|render + pyavd validate + git commit| I["AVD inputs<br/>inventory.yml + group_vars/"]
+  I -->|lab.build: pyavd| B["Build outputs<br/>structured configs, EOS configs,<br/>docs, ANTA catalogs, clab topology"]
+  B -->|lab.deploy| D["Running lab<br/>cEOS containers on a lab host"]
+  D -->|lab.validate: ANTA| V["Validation run<br/>JSON / MD / CSV report"]
+  B -->|lab.cv_deploy| C["CloudVision<br/>workspace + change control"]
+  D -->|lab.cv_onboard| C
+  B -->|lab.netbox_sync| N["NetBox<br/>devices, IPs, cables"]
+  E["Topology editor / AI designer / Files tab"] -.->|edits are input changes| I

@@ -1,0 +1,122 @@
+erDiagram
+  users ||--o| ai_links : "links one model"
+  users ||--o{ learn_progress : "by username"
+  users ||--o{ audit_log : "by username"
+  account_requests }o--o| users : "approved into"
+  secrets ||--o{ hosts : "ssh key, password, sudo password"
+  secrets ||--o{ cv_targets : "service-account, onboarding token"
+  secrets ||--o{ netbox_targets : "API token"
+  secrets ||--o| ai_links : "API key"
+  hosts ||--o{ labs : "runs"
+  hosts ||--o{ jobs : "host jobs"
+  hosts ||--o{ host_metrics : "samples"
+  cv_targets ||--o{ labs : "bound to"
+  netbox_targets ||--o{ labs : "bound to"
+  labs ||--o{ jobs : "lab jobs"
+  labs ||--o{ validation_runs : "ANTA runs"
+  labs ||--o{ traffic_runs : "ping, iperf, mss"
+  jobs ||--o{ validation_runs : "produced by"
+  users {
+    string id PK
+    string username UK
+    string role
+    bool mfa_enabled
+    int session_version
+  }
+  secrets {
+    string id PK
+    string name UK
+    enum kind
+    text ciphertext
+  }
+  hosts {
+    string id PK
+    string name UK
+    enum kind
+    string address
+    string platform
+    json capabilities
+  }
+  images {
+    string id PK
+    string fmt
+    string version
+    string arch
+  }
+  labs {
+    string id PK
+    string name UK
+    string slug UK
+    string template
+    string target
+    enum state
+    json settings
+    string host_id FK
+    string cv_target_id FK
+    string netbox_target_id FK
+  }
+  jobs {
+    string id PK
+    string type
+    enum status
+    string lab_id FK
+    string host_id FK
+  }
+  validation_runs {
+    string id PK
+    string lab_id FK
+    string job_id FK
+    json totals
+  }
+  traffic_runs {
+    string id PK
+    string lab_id FK
+    string kind
+  }
+  cv_targets {
+    string id PK
+    string name UK
+    string kind
+  }
+  netbox_targets {
+    string id PK
+    string name UK
+  }
+  account_requests {
+    string id PK
+    string username
+    string status
+    string role
+  }
+  app_settings {
+    string key PK
+    json value
+  }
+  ai_links {
+    string id PK
+    string user_id UK
+    string provider
+    string model
+  }
+  audit_log {
+    int id PK
+    datetime at
+    string username
+    string event
+  }
+  feedback {
+    string id PK
+    string kind
+    string title
+    string status
+  }
+  learn_progress {
+    int id PK
+    string username
+    string lesson_id
+  }
+  host_metrics {
+    int id PK
+    string host_id
+    datetime at
+  }

@@ -1,0 +1,175 @@
+# avdlab on the Mac mini (or any Docker host).   cd deploy && cp .env.example .env && docker compose up -d --build
+# UI + API: http://<mac-mini>:8080       Postgres: `docker compose --profile postgres up -d` + set AVDLAB_DATABASE_URL in .env
+# Public HTTPS (v0.8.0): set AVDLAB_DOMAIN/AVDLAB_ACME_EMAIL/AVDLAB_PUBLIC_URL/AVDLAB_TRUST_PROXY_HEADERS and
+# AVDLAB_BIND_ADDRESS=127.0.0.1 in .env, then `docker compose --profile public up -d` (Caddy on 80/443, see Caddyfile)
+name: avdlab
+
+services:
+  api:
+    build:
+      context: ..                      # repo root: needs backend/, templates/ and (optionally) frontend/
+      dockerfile: deploy/Dockerfile.backend
+      args:                            # phase 5: build info for /api/meta (export them before `docker compose build`)
+        AVDLAB_GIT_SHA: ${AVDLAB_GIT_SHA:-}
+        AVDLAB_BUILD_DATE: ${AVDLAB_BUILD_DATE:-}
+    # phase 6: AVDLAB_UPDATE_MODE=image pulls a release image into this tag (ghcr.io/<owner>/avdlab:<version>)
+    image: ${AVDLAB_IMAGE:-avdlab/api:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AVDLAB_DATA_DIR: /data
+      # phase 6 self-update: HOST path of this deploy/ dir (defaults to the directory compose runs in)
+      AVDLAB_DEPLOY_DIR: ${AVDLAB_DEPLOY_DIR:-${PWD}}
+    ports:
+      # public profile: AVDLAB_BIND_ADDRESS=127.0.0.1 so the API is reachable only through Caddy (and an SSH tunnel)
+      - "${AVDLAB_BIND_ADDRESS:-0.0.0.0}:${AVDLAB_PORT:-8080}:8080"
+    volumes:
+      - avdlab-data:/data
+      # Optional: let the API use the local Docker engine (cEOS image import/cache via eos-downloader, docker save)
+      # and update itself from the About page (phase 6: a detached docker:cli helper runs git pull / compose).
+      # - /var/run/docker.sock:/var/run/docker.sock
+    # depends_on is not declared for db so the default (sqlite) stack starts without the postgres profile.
+
+  # ---- public HTTPS (v0.8.0):  docker compose --profile public up -d   → https://${AVDLAB_DOMAIN}
+  # Let's Encrypt via HTTP-01/TLS-ALPN: ports 80+443 must be reachable and the DNS A record must exist first.
+  caddy:
+    profiles: ["public"]
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      AVDLAB_DOMAIN: ${AVDLAB_DOMAIN:-}
+      AVDLAB_ACME_EMAIL: ${AVDLAB_ACME_EMAIL:-}
+      AVDLAB_ACME_STAGING: ${AVDLAB_ACME_STAGING:-false}
+    # AVDLAB_ACME_STAGING=true → Let's Encrypt staging CA (read by `acme_ca {$$AVDLAB_ACME_CA}` in the Caddyfile)
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -z "$$AVDLAB_DOMAIN" ] || [ -z "$$AVDLAB_ACME_EMAIL" ]; then echo "caddy: set AVDLAB_DOMAIN and AVDLAB_ACME_EMAIL in deploy/.env" >&2; exit 1; fi
+        if [ "$$AVDLAB_ACME_STAGING" = "true" ]; then export AVDLAB_ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory; fi
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"                  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data               # certificates + ACME account: keep it, or you hit Let's Encrypt rate limits
+      - caddy_config:/config
+
+  db:
+    profiles: ["postgres"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: avdlab
+      POSTGRES_USER: avdlab
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-avdlab}
+    volumes:
+      - avdlab-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avdlab -d avdlab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---- NetBox (Module 6), optional:  docker compose --profile netbox up -d   → http://<docker-host>:${NETBOX_PORT:-8000}
+  # Superuser + API token come from .env (NETBOX_SUPERUSER_*, NETBOX_API_TOKEN); add a NetBox target in the app with
+  # URL http://netbox:8080 (same compose project) or http://<docker-host>:${NETBOX_PORT:-8000}, and that token.
+  netbox:
+    profiles: ["netbox"]
+    image: netboxcommunity/netbox:${NETBOX_VERSION:-v4.2}
+    restart: unless-stopped
+    depends_on:
+      netbox-postgres:
+        condition: service_healthy
+      netbox-redis:
+        condition: service_started
+      netbox-redis-cache:
+        condition: service_started
+    environment: &netbox-env
+      DB_HOST: netbox-postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: ${NETBOX_DB_PASSWORD:-netbox}
+      REDIS_HOST: netbox-redis
+      REDIS_PASSWORD: ${NETBOX_REDIS_PASSWORD:-netbox}
+      REDIS_DATABASE: 0
+      REDIS_CACHE_HOST: netbox-redis-cache
+      REDIS_CACHE_PASSWORD: ${NETBOX_REDIS_PASSWORD:-netbox}
+      REDIS_CACHE_DATABASE: 1
+      SECRET_KEY: ${NETBOX_SECRET_KEY:-}  # required with the netbox profile (see .env.example)
+      SKIP_SUPERUSER: "false"
+      SUPERUSER_NAME: ${NETBOX_SUPERUSER_NAME:-admin}
+      SUPERUSER_EMAIL: ${NETBOX_SUPERUSER_EMAIL:-admin@example.com}
+      SUPERUSER_PASSWORD: ${NETBOX_SUPERUSER_PASSWORD:-admin}
+      SUPERUSER_API_TOKEN: ${NETBOX_API_TOKEN:-}  # required: 40 hex characters
+      CORS_ORIGIN_ALLOW_ALL: "true"
+      METRICS_ENABLED: "false"
+    ports:
+      - "${NETBOX_PORT:-8000}:8080"
+    volumes:
+      - netbox-media:/opt/netbox/netbox/media
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/login/ || exit 1"]
+      start_period: 300s
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  netbox-worker:
+    profiles: ["netbox"]
+    image: netboxcommunity/netbox:${NETBOX_VERSION:-v4.2}
+    restart: unless-stopped
+    depends_on:
+      netbox:
+        condition: service_healthy
+    command: ["/opt/netbox/venv/bin/python", "/opt/netbox/netbox/manage.py", "rqworker"]
+    environment: *netbox-env
+    healthcheck:
+      test: ["CMD-SHELL", "ps -aux | grep -v grep | grep -q rqworker || exit 1"]
+      interval: 15s
+
+  netbox-postgres:
+    profiles: ["netbox"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: ${NETBOX_DB_PASSWORD:-netbox}
+    volumes:
+      - netbox-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netbox -d netbox"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  netbox-redis:
+    profiles: ["netbox"]
+    image: valkey/valkey:8.0-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "valkey-server --appendonly yes --requirepass $$REDIS_PASSWORD"]
+    environment:
+      REDIS_PASSWORD: ${NETBOX_REDIS_PASSWORD:-netbox}
+    volumes:
+      - netbox-redis:/data
+
+  netbox-redis-cache:
+    profiles: ["netbox"]
+    image: valkey/valkey:8.0-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "valkey-server --requirepass $$REDIS_PASSWORD"]
+    environment:
+      REDIS_PASSWORD: ${NETBOX_REDIS_PASSWORD:-netbox}
+
+volumes:
+  avdlab-data:
+  caddy_data:
+  caddy_config:
+  avdlab-pg:
+  netbox-media:
+  netbox-pg:
+  netbox-redis:

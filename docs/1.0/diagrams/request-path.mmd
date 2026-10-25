@@ -1,0 +1,21 @@
+sequenceDiagram
+  participant B as Browser
+  participant C as Caddy (443)
+  participant P as ProxyHeadersMiddleware
+  participant S as SessionMiddleware
+  participant G as RoleGuard
+  participant R as Router / SPA files
+  B->>C: GET https://avdlab.example.com/api/labs (cookie)
+  C->>C: TLS (Let's Encrypt), HSTS, zstd/gzip
+  C->>P: http://api:8080 + X-Forwarded-Proto/For/Host
+  P->>S: scheme=https, client IP = real IP (AVDLAB_TRUST_PROXY_HEADERS)
+  S->>G: scope.session = decoded signed cookie
+  G->>G: load user, check disabled + session_version, role_denial()
+  alt denied
+    G-->>B: 403 {"detail": "role viewer may not POST ..."}
+  else allowed
+    G->>R: route /api/... (or SPA index.html for non-API paths)
+    R-->>B: JSON + X-Content-Type-Options, X-Frame-Options, Referrer-Policy
+  end
+  B->>C: WebSocket /api/jobs/{id}/stream
+  C->>R: upgrade proxied as-is (4401 stale session, 4403 role)

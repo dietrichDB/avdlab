@@ -1,0 +1,27 @@
+# avdlab behind Caddy with automatic HTTPS (Let's Encrypt).  Used by the `public` compose profile:
+#   docker compose --profile public up -d
+# Values come from deploy/.env (passed in by docker-compose.yml):
+#   AVDLAB_DOMAIN       DNS name whose A record points at this host (must resolve BEFORE the first start)
+#   AVDLAB_ACME_EMAIL   contact address for the ACME account (expiry notices)
+#   AVDLAB_ACME_STAGING=true  → the compose entrypoint sets AVDLAB_ACME_CA to the Let's Encrypt *staging*
+#                         directory (untrusted test certificates, high rate limits) — use it for dry runs.
+# Certificates live in the caddy_data volume and are renewed automatically.
+
+{
+	# Let's Encrypt production unless AVDLAB_ACME_CA is set (staging: https://acme-staging-v02.api.letsencrypt.org/directory)
+	acme_ca {$AVDLAB_ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
+}
+
+{$AVDLAB_DOMAIN} {
+	tls {$AVDLAB_ACME_EMAIL}
+	encode zstd gzip
+	# WebSockets (job logs, web terminals) are proxied as-is; Caddy sets X-Forwarded-Proto/For/Host
+	reverse_proxy api:8080
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}

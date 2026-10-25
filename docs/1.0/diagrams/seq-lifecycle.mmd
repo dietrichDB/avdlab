@@ -1,0 +1,41 @@
+sequenceDiagram
+  autonumber
+  actor U as Engineer
+  participant UI as SPA
+  participant API as FastAPI
+  participant J as Job engine
+  participant G as Lab git repo (/data/labs/slug)
+  participant H as Lab host (SSH)
+  participant A as Agent container
+  participant S as cEOS switches
+
+  U->>UI: New lab: template, knobs, host, image
+  UI->>API: POST /api/labs
+  API->>API: coerce knobs, render group_vars, pyavd validate_inputs
+  API->>G: write inventory + group_vars, git commit
+  API-->>UI: 201 lab (state draft) or 422 violations
+  U->>UI: Build
+  UI->>API: POST /api/labs/{id}/build
+  API->>J: submit lab.build
+  API-->>UI: 202 job_id
+  UI->>API: WS /api/jobs/{job_id}/stream
+  J->>J: pyavd facts, structured configs, configs, docs, ANTA catalogs
+  J->>G: commit build outputs, write clab/topology.clab.yml
+  J-->>UI: log lines, done (state built)
+  U->>UI: Deploy
+  UI->>API: POST /api/labs/{id}/deploy
+  API->>J: submit lab.deploy
+  J->>H: docker image inspect (import image if missing)
+  J->>H: tar copy lab to /opt/avdlab/labs/slug
+  J->>H: sudo containerlab deploy --reconfigure
+  H->>S: start cEOS with intended config as startup-config
+  J->>H: curl eAPI per switch (credentials on stdin)
+  J-->>UI: state deployed, config hashes recorded
+  U->>UI: Validate
+  UI->>API: POST /api/labs/{id}/validate
+  API->>J: submit lab.validate
+  J->>H: docker run agent ansible-playbook avdlab-validate.yml
+  A->>S: ANTA tests over eAPI
+  J->>H: fetch anta_report json/md/csv
+  J->>G: store anta/runs/run_id, commit
+  J-->>UI: state validated (or deployed if failures)
